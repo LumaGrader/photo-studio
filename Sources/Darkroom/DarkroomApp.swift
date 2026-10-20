@@ -64,6 +64,10 @@ struct DarkroomApp: App {
                     .keyboardShortcut("e", modifiers: [.command, .shift, .option])
                     .disabled(!store.canExportWithPrevious)
                 Divider()
+                Button("Create Proofing Gallery…") { store.beginProofingGallery() }
+                    .disabled(store.selectedPhotoID == nil || store.proofingProgress != nil)
+                Button("Import Client Picks…") { store.showPicksImport = true }
+                Divider()
                 Button("Page Setup…") { store.pageSetup() }
                     .keyboardShortcut("p", modifiers: [.command, .shift])
                 Button("Print…") { store.printSelected() }
@@ -132,6 +136,9 @@ struct DarkroomApp: App {
                 Button("Auto Tone + White Balance") { store.autoSettings(tone: true, whiteBalance: true) }
                     .keyboardShortcut("u", modifiers: [.command, .option])
                     .disabled(store.selectedPhotoID == nil || store.batchProgress != nil)
+                Button("Match Total Exposures") { store.matchTotalExposures() }
+                    .keyboardShortcut("m", modifiers: [.command, .shift, .option])
+                    .disabled(!store.canMatchExposures)
                 Button("Reset Settings") { store.resetSettings() }
                     .keyboardShortcut("r", modifiers: [.command, .shift])
                     .disabled(store.selectedPhotoID == nil)

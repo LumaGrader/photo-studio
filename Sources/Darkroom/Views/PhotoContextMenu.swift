@@ -27,6 +27,9 @@ struct PhotoContextMenu: View {
             Button(count > 1 ? "Export \(count) Photos… (⇧⌘E)" : "Export… (⇧⌘E)") { run { store.beginExport() } }
             Button("Export with Previous (⌥⇧⌘E)") { run { store.exportWithPrevious() } }
                 .disabled(store.exportQueue.lastOptions.isEmpty)
+            Button(count > 1 ? "Create Proofing Gallery of \(count) Photos…" : "Create Proofing Gallery…") {
+                run { store.beginProofingGallery() }
+            }
             let presets = ExportPreset.load()
             if !presets.isEmpty {
                 Divider()
@@ -42,6 +45,8 @@ struct PhotoContextMenu: View {
             Button("Auto Tone (⌘U)") { run { store.autoSettings(tone: true, whiteBalance: false) } }
             Button("Auto White Balance (⇧⌘U)") { run { store.autoSettings(tone: false, whiteBalance: true) } }
             Button("Auto Tone + White Balance") { run { store.autoSettings(tone: true, whiteBalance: true) } }
+            Button("Match Total Exposures (⌥⇧⌘M)") { run { store.matchTotalExposures() } }
+                .disabled(count < 2)
             Divider()
             Button("Copy Settings… (⇧⌘C)") { run { store.settingsSheet = .copy } }
             Button("Copy All Settings (⌥⌘C)") { run { store.copyAllSettings() } }

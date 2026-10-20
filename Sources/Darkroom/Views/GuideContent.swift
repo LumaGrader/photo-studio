@@ -164,6 +164,16 @@ enum GuideContent {
             shortcuts: [.init(keys: "⇧⌘S", action: "Sync Settings"), .init(keys: "⌥⇧⌘A", action: "Auto Sync"),
                         .init(keys: "⌥⌘C", action: "Copy all settings")]),
         GuideFeature(
+            id: "matchexposure", icon: "sun.max", title: "Match Total Exposures", section: "Develop",
+            summary: "Give a series the same brightness, even when the light or the camera's auto exposure changed.",
+            steps: [
+                "Select the photos of the series, then click the one whose brightness is right (it becomes the active photo).",
+                "Choose Photo ▸ Match Total Exposures (⌥⇧⌘M), or right-click ▸ Develop Settings.",
+                "Each photo's Exposure is set from its shutter speed, aperture and ISO so it matches the active photo. Nothing else changes.",
+            ],
+            shortcuts: [.init(keys: "⌥⇧⌘M", action: "Match Total Exposures")],
+            tip: "Photos without camera exposure data (some scans and screenshots) are skipped."),
+        GuideFeature(
             id: "hdr", icon: "square.stack.3d.up", title: "HDR Merge", section: "Develop",
             summary: "Combine bracketed exposures into one photo with full highlight and shadow detail.",
             steps: [
@@ -194,6 +204,17 @@ enum GuideContent {
             ],
             shortcuts: [.init(keys: "⌘P", action: "Print"), .init(keys: "⇧⌘P", action: "Page Setup")],
             tip: "If prints come out darker than the screen, turn on Print Adjustment and raise Brightness a little."),
+
+        GuideFeature(
+            id: "proofing", icon: "heart.text.square", title: "Client Proofing Gallery", section: "Output",
+            summary: "Let a client pick their favourites from a small website you send them, then mark those photos in one go.",
+            steps: [
+                "Select the photos and choose File ▸ Create Proofing Gallery… (or right-click ▸ Export).",
+                "Add a title, your name, and optionally your email and Messenger username. Choose the size and a watermark.",
+                "Send the .zip to the client (Google Drive, Messenger, WeTransfer). They open index.html in any browser, tap hearts, add notes and press Send my picks.",
+                "Copy the list they send back and choose File ▸ Import Client Picks… Their favourites get the Purple label; notes are listed with a Show button.",
+            ],
+            tip: "Library Filter ▸ Purple (or Show Client Picks) shows just their favourites, ready to edit or export."),
 
         // MARK: Workflow
         GuideFeature(

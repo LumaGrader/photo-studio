@@ -18,12 +18,14 @@ Part of the LumaGrader suite.
   bursts of similar shots), Focus Check with focus peaking, People (face grouping).
 - **Develop:** RAW decoding with Core Image, white balance, tone, tone curve, colour mixer,
   point colour, colour grading, detail and denoise, lens corrections and lens blur, crop and
-  straighten, Auto Tone, HDR merge.
+  straighten, Auto Tone, Match Total Exposures, HDR merge.
 - **Local edits:** masks (Select Subject, brush, linear, radial, luminance and colour range), healing.
 - **Presets and profiles:** presets, `.cube` LUT profiles, Lightroom-style `.xmp` preset import,
   copy / paste / sync settings, Auto Sync.
 - **Output:** export JPEG, 16-bit TIFF or PNG with resizing and watermarks; Print module with ICC
   paper profiles and soft proofing.
+- **Client proofing:** a small offline website of selected photos for a client to heart and comment
+  on; their list comes back with Import Client Picks (Purple label).
 - **Tethered capture:** hot-folder tethering with Canon EOS Utility.
 - **Catalog:** SQLite catalog with backups and restore.
 

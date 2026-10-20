@@ -1090,6 +1090,16 @@ final class LibraryStore: ObservableObject {
     // MARK: - Photo Merge: HDR
 
     @Published var showHDRSheet = false
+
+    // MARK: - Client proofing (LibraryStore+Proofing.swift)
+
+    @Published var showProofingSheet = false
+    @Published var proofingProgress: BatchProgress?
+    @Published var proofingResult: ProofingGallery.Result?
+    @Published var proofingError: String?
+    @Published var showPicksImport = false
+    /// Photos the open proofing sheet is about (taken when it opens).
+    var proofingPhotos: [Photo] = []
     /// What the HDR merge is doing (nil = not running).
     @Published private(set) var hdrProgress: String?
     @Published var hdrError: String?
@@ -1181,7 +1191,7 @@ final class LibraryStore: ObservableObject {
 
     /// New settings for one photo: through the Develop session when it's open there
     /// (so it renders and can be undone), otherwise straight to the catalog.
-    private func setSettings(_ settings: DevelopSettings, for id: Int64, label: String) {
+    func setSettings(_ settings: DevelopSettings, for id: Int64, label: String) {
         if let open = develop.photo, open.id == id {
             develop.replaceSettings(settings, label: label)
             return

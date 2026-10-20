@@ -215,10 +215,14 @@ extension LibraryStore {
 
         // Photo
         add("Export…", "Photo", keywords: "save jpeg", shortcut: "⇧⌘E", enabled: hasPhoto) { self.beginExport() }
+        add("Create Proofing Gallery…", "Photo", keywords: "client gallery proof favorites hearts select picks share", enabled: hasPhoto) { self.beginProofingGallery() }
+        add("Import Client Picks…", "Photo", keywords: "client proofing favorites hearts purple paste") { self.showPicksImport = true }
+        add("Show Client Picks (Purple)", "Library", keywords: "client proofing favorites filter purple") { self.showClientPicks() }
         add("Export with Previous", "Photo", shortcut: "⌥⇧⌘E", enabled: hasPhoto && !exportQueue.lastOptions.isEmpty) { self.exportWithPrevious() }
         add("Auto Tone", "Photo", keywords: "automatic", shortcut: "⌘U", enabled: hasPhoto) { self.autoSettings(tone: true, whiteBalance: false) }
         add("Auto White Balance", "Photo", keywords: "automatic wb", shortcut: "⇧⌘U", enabled: hasPhoto) { self.autoSettings(tone: false, whiteBalance: true) }
         add("Auto Tone + White Balance", "Photo", shortcut: "⌥⌘U", enabled: hasPhoto) { self.autoSettings(tone: true, whiteBalance: true) }
+        add("Match Total Exposures", "Photo", keywords: "same brightness exposure series", shortcut: "⌥⇧⌘M", enabled: canMatchExposures) { self.matchTotalExposures() }
         add("Copy Settings…", "Photo", shortcut: "⇧⌘C", enabled: hasPhoto) { self.settingsSheet = .copy }
         add("Copy All Settings", "Photo", shortcut: "⌥⌘C", enabled: hasPhoto) { self.copyAllSettings() }
         add("Paste Settings", "Photo", shortcut: "⇧⌘V", enabled: canPaste) { self.pasteSettings() }

@@ -5,6 +5,12 @@ _(dating "DarkLab Studio", at bago noon "Darkroom")_
 Offline photo library + RAW editor para sa macOS, inspired ng Lightroom Classic.
 SwiftUI + SQLite + Core Image. Walang account, walang cloud.
 
+**Bago sa v0.28.0: Match Total Exposures + Client Proofing Gallery**
+- **Photo ▸ Match Total Exposures (⌥⇧⌘M)** (pati right-click ▸ Develop Settings at ⌘K): piliin ang serye, i-click ang photo na tama ang liwanag, at ita-tama ang **Exposure** ng iba batay sa shutter, aperture at ISO (gaya ng Lightroom). Exposure lang ang nagbabago; nilalaktawan ang walang camera data.
+- **File ▸ Create Proofing Gallery…** (o right-click ▸ Export): gagawa ng folder + **.zip** (website ng mga napiling photo, 1600/2048/2560 px, may watermark kung gusto) na bubuksan ng kliyente sa browser kahit walang internet. Hearts, notes, Favorites filter, malaking view (←/→, swipe), at **Send my picks** (Copy, email, o Messenger).
+- **File ▸ Import Client Picks…**: i-paste ang listahan ng kliyente → **Purple** label sa mga favorite nila (hindi gagalawin ang sarili mong flags at stars). Lalabas ang notes nila na may **Show** button; **Show Client Picks** = Library Filter ▸ Purple.
+- Naka-save sa `~/Library/Application Support/Darkroom/Proofing/` ang listahan ng bawat gallery para tamang photo ang ma-match kahit pareho ang file name.
+
 **Bago sa v0.27.1: Open source**
 - Open source na sa GitHub (LumaGrader/photo-studio) sa ilalim ng **GNU GPL v3** (`LICENSE`). English na `README.md`; ang Taglish na notes na ito ay nasa `docs/CHANGELOG.md` na.
 - About tab: bagong **Website** (lumagrader.app) at **Source Code** buttons, License row; "© LumaGrader (Rax). Free software, GNU GPL v3." (dating "All rights reserved", na hindi tugma sa GPL).

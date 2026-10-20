@@ -66,6 +66,12 @@ struct ContentView: View {
         .sheet(isPresented: $store.showHDRSheet) {
             HDRMergeSheet().environmentObject(store)
         }
+        .sheet(isPresented: $store.showProofingSheet) {
+            ProofingSheet().environmentObject(store)
+        }
+        .sheet(isPresented: $store.showPicksImport) {
+            PicksImportSheet().environmentObject(store)
+        }
         .sheet(isPresented: $store.showPeopleSheet) {
             PeopleSheet().environmentObject(store)
         }
