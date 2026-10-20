@@ -1,0 +1,75 @@
+LumaGrader Photo Studio
+=======================
+
+An offline photo organiser and RAW editor for macOS.
+Needs macOS 14 Sonoma or newer, on an Apple silicon or Intel Mac.
+
+
+1. INSTALL
+
+   Drag LumaGrader Photo Studio into the Applications folder in this window.
+   Then eject the "LumaGrader Photo Studio" disk (in the Finder sidebar).
+
+
+2. OPEN IT THE FIRST TIME  (a warning here is normal)
+
+   The first time you open LumaGrader, macOS blocks it with a message like
+   "Apple could not verify LumaGrader Photo Studio is free of malware".
+   THIS IS NORMAL.
+
+   Why: macOS only opens apps without asking when they are signed with a
+   paid Apple Developer ID and checked ("notarized") by Apple. LumaGrader is
+   made by an independent developer and shared directly, not through the
+   App Store, so it isn't notarized. Any app shared this way gets the same
+   warning. You confirm it once in System Settings; after that LumaGrader
+   opens normally.
+
+   LumaGrader works fully offline: no account, nothing is uploaded, and your
+   original photo files are never changed.
+
+   macOS 15 Sequoia and newer:
+     a. Open LumaGrader from Applications. macOS says it "could not verify"
+        the app. Click Done (do NOT move it to the Trash).
+     b. Open System Settings > Privacy & Security.
+     c. Scroll down. Next to "LumaGrader Photo Studio was
+        blocked…", click Open Anyway.
+     d. Enter your password, then click Open Anyway again.
+
+   macOS 14 Sonoma:
+     Right-click (or Control-click) LumaGrader in Applications, choose Open,
+     then click Open.
+
+   If macOS says LumaGrader "is damaged":
+     That's the same check, worded differently. Open Terminal and paste:
+
+       xattr -dr com.apple.quarantine "/Applications/LumaGrader Photo Studio.app"
+
+     Press Return, then open LumaGrader normally.
+
+   Inside LumaGrader, Help > LumaGrader Guide explains every feature step by
+   step, and has these security steps too (Mac Security tab).
+
+
+3. YOUR PHOTOS AND CATALOG
+
+   LumaGrader never changes your original photo files. Ratings, labels,
+   edits, collections and people are kept in a catalog at:
+
+     ~/Library/Application Support/Darkroom/Catalog.sqlite
+
+   File > Catalog Backup lets you back up the catalog now, turn on a
+   daily backup (the newest 10 copies are kept), choose a backup folder
+   on another drive, or restore an earlier copy.
+
+
+4. UPDATE
+
+   Install a newer LumaGrader the same way, and choose Replace when asked.
+   Your catalog, settings and presets stay as they are.
+
+
+5. UNINSTALL
+
+   Move LumaGrader from Applications to the Trash. To remove its data too,
+   also delete the folder ~/Library/Application Support/Darkroom
+   (this deletes your catalog and its backups, not your photos).
