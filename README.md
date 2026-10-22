@@ -94,7 +94,7 @@ carry over: bundle id `com.rax.darkroom`, data in `~/Library/Application Support
 
 ## Contributing
 
-Bug reports and ideas are welcome in [Issues](https://github.com/LumaGrader/photo-studio/issues).
+Questions: [support@lumagrader.app](mailto:support@lumagrader.app). Bug reports and ideas are welcome in [Issues](https://github.com/LumaGrader/photo-studio/issues).
 Please include your macOS version, Mac model and camera / file type for RAW problems.
 
 ## License

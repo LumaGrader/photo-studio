@@ -346,6 +346,7 @@ private struct AboutTab: View {
                     row("Built with", "Swift, SwiftUI, Core Image, Vision and SQLite — all from Apple; no third-party code")
                     row("Requires", "macOS 14 Sonoma or newer, Apple silicon or Intel")
                     row("Your data", "~/Library/Application Support/Darkroom (catalog, backups, presets)")
+                    row("Help", "support@lumagrader.app")
                     row("License", "Free and open source under the GNU GPL v3. You may use, share and change it; shared changes must stay open source.")
                 }
                 .padding(18)
@@ -362,6 +363,9 @@ private struct AboutTab: View {
                     }
                     Button("Website") {
                         if let url = URL(string: "https://lumagrader.app") { NSWorkspace.shared.open(url) }
+                    }
+                    Button("Email Support") {
+                        if let url = URL(string: "mailto:support@lumagrader.app?subject=LumaGrader%20Photo%20Studio") { NSWorkspace.shared.open(url) }
                     }
                     Button("Source Code") {
                         if let url = URL(string: "https://github.com/LumaGrader/photo-studio") { NSWorkspace.shared.open(url) }

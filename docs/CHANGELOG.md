@@ -5,6 +5,9 @@ _(dating "DarkLab Studio", at bago noon "Darkroom")_
 Offline photo library + RAW editor para sa macOS, inspired ng Lightroom Classic.
 SwiftUI + SQLite + Core Image. Walang account, walang cloud.
 
+**Bago sa v0.28.1: Support email**
+- About tab: **Help** row at **Email Support** button → support@lumagrader.app (Cloudflare Email Routing papunta sa Gmail ni Rax). Nasa DMG Read Me at README na rin.
+
 **Bago sa v0.28.0: Match Total Exposures + Client Proofing Gallery**
 - **Photo ▸ Match Total Exposures (⌥⇧⌘M)** (pati right-click ▸ Develop Settings at ⌘K): piliin ang serye, i-click ang photo na tama ang liwanag, at ita-tama ang **Exposure** ng iba batay sa shutter, aperture at ISO (gaya ng Lightroom). Exposure lang ang nagbabago; nilalaktawan ang walang camera data.
 - **File ▸ Create Proofing Gallery…** (o right-click ▸ Export): gagawa ng folder + **.zip** (website ng mga napiling photo, 1600/2048/2560 px, may watermark kung gusto) na bubuksan ng kliyente sa browser kahit walang internet. Hearts, notes, Favorites filter, malaking view (←/→, swipe), at **Send my picks** (Copy, email, o Messenger).

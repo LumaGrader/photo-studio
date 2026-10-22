@@ -46,6 +46,8 @@ Needs macOS 14 Sonoma or newer, on an Apple silicon or Intel Mac.
 
      Press Return, then open LumaGrader normally.
 
+   Still stuck? Email support@lumagrader.app
+
    Inside LumaGrader, Help > LumaGrader Guide explains every feature step by
    step, and has these security steps too (Mac Security tab).
 
