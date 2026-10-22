@@ -6,8 +6,7 @@ original photo files are never changed.
 
 **Download:** <https://lumagrader.app> · **Support:** [Ko-fi](https://ko-fi.com/lumagrader)
 
-Made by Rax (Malayte Photo and Films) for his own wedding, event, portrait and travel work.
-Part of the LumaGrader suite.
+Built for wedding, event, portrait and travel work. Part of the LumaGrader suite.
 
 ## Features
 
@@ -99,7 +98,7 @@ Please include your macOS version, Mac model and camera / file type for RAW prob
 
 ## License
 
-Copyright © 2026 LumaGrader (Rax).
+Copyright © 2026 LumaGrader.
 
 LumaGrader Photo Studio is free software: you can redistribute it and/or modify it under the
 terms of the GNU General Public License version 3 as published by the Free Software Foundation.

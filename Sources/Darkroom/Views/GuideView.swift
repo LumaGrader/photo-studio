@@ -342,7 +342,6 @@ private struct AboutTab: View {
                     .frame(maxWidth: 520)
 
                 VStack(alignment: .leading, spacing: 10) {
-                    row("Made by", "Rax · Malayte Photo and Films")
                     row("Built with", "Swift, SwiftUI, Core Image, Vision and SQLite — all from Apple; no third-party code")
                     row("Requires", "macOS 14 Sonoma or newer, Apple silicon or Intel")
                     row("Your data", "~/Library/Application Support/Darkroom (catalog, backups, presets)")
@@ -376,7 +375,7 @@ private struct AboutTab: View {
                     }
                 }
 
-                Text("© \(Calendar.current.component(.year, from: Date())) LumaGrader (Rax). Free software, GNU GPL v3.")
+                Text("© \(Calendar.current.component(.year, from: Date())) LumaGrader. Free software, GNU GPL v3.")
                     .font(Theme.smallFont)
                     .foregroundStyle(Theme.textDim)
                     .padding(.bottom, 20)

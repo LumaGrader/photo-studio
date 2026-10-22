@@ -35,7 +35,7 @@ struct WatermarkSettings: Codable, Hashable {
 
     var enabled = false
     var kind = Kind.text
-    var text = "© Malayte"
+    var text = "© Your Name"
     var imagePath = ""
     /// Width of the watermark, % of the photo's long edge.
     var size = 15.0

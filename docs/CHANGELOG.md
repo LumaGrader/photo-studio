@@ -5,8 +5,12 @@ _(dating "DarkLab Studio", at bago noon "Darkroom")_
 Offline photo library + RAW editor para sa macOS, inspired ng Lightroom Classic.
 SwiftUI + SQLite + Core Image. Walang account, walang cloud.
 
+**Bago sa v0.28.2: Walang personal na pangalan**
+- About tab: tinanggal ang "Made by" row; copyright ay "© LumaGrader" na lang. README: walang pangalan.
+- Default watermark text: "© Your Name". Hindi nagbabago ang naka-save mo nang watermark.
+
 **Bago sa v0.28.1: Support email**
-- About tab: **Help** row at **Email Support** button → support@lumagrader.app (Cloudflare Email Routing papunta sa Gmail ni Rax). Nasa DMG Read Me at README na rin.
+- About tab: **Help** row at **Email Support** button → support@lumagrader.app (Cloudflare Email Routing papunta sa Gmail). Nasa DMG Read Me at README na rin.
 
 **Bago sa v0.28.0: Match Total Exposures + Client Proofing Gallery**
 - **Photo ▸ Match Total Exposures (⌥⇧⌘M)** (pati right-click ▸ Develop Settings at ⌘K): piliin ang serye, i-click ang photo na tama ang liwanag, at ita-tama ang **Exposure** ng iba batay sa shutter, aperture at ISO (gaya ng Lightroom). Exposure lang ang nagbabago; nilalaktawan ang walang camera data.
@@ -16,7 +20,7 @@ SwiftUI + SQLite + Core Image. Walang account, walang cloud.
 
 **Bago sa v0.27.1: Open source**
 - Open source na sa GitHub (LumaGrader/photo-studio) sa ilalim ng **GNU GPL v3** (`LICENSE`). English na `README.md`; ang Taglish na notes na ito ay nasa `docs/CHANGELOG.md` na.
-- About tab: bagong **Website** (lumagrader.app) at **Source Code** buttons, License row; "© LumaGrader (Rax). Free software, GNU GPL v3." (dating "All rights reserved", na hindi tugma sa GPL).
+- About tab: bagong **Website** (lumagrader.app) at **Source Code** buttons, License row; "© LumaGrader. Free software, GNU GPL v3." (dating "All rights reserved", na hindi tugma sa GPL).
 
 **Bago sa v0.27.0: Bagong pangalan — LumaGrader Photo Studio**
 - Bahagi na ng **LumaGrader** suite (LumaGrader Photo Studio · LumaGrader Motion · for iPad). May kapangalang "DarkLab Studio" na website, kaya pinalitan.
@@ -25,7 +29,7 @@ SwiftUI + SQLite + Core Image. Walang account, walang cloud.
 - Installer: `dist/LumaGrader-Photo-Studio-<version>.dmg` (+ .zip para sa Ko-fi).
 - Kusang tinatanggal ng `make-app.sh --install` ang lumang `DarkLab.app` at `Darkroom.app`.
 - **Walang nawawala:** pareho ang bundle id at ang catalog folder (`~/Library/Application Support/Darkroom`), kaya andiyan pa rin ang photos, edits, presets at settings. Kung ginagamit ang `~/Pictures/DarkLab Tether`, iyon pa rin ang tether folder (para tugma pa sa EOS Utility).
-- Ko-fi: **ko-fi.com/lumagrader** (pinalitan ni Rax ang Ko-fi page: "LumaGrader Studio").
+- Ko-fi: **ko-fi.com/lumagrader** (bagong pangalan ng Ko-fi page: "LumaGrader Studio").
 
 **Bago sa v0.26.0: Delete Photo + right-click sa preview**
 - **Delete Photo…** (right-click, ⌫ Delete key, Photo menu, ⌘K): may tanong gaya ng Lightroom — **Move to Trash** (buburahin ang file; mababawi pa sa Trash) o **Remove from Catalog** (maiiwan ang file, aalisin lang sa DarkLab). Kasama ang naka-stack na JPEG ng RAW, at ang mga virtual copy ng photo. Virtual copy lang ang napili → aalisin lang sa catalog.
@@ -161,7 +165,7 @@ Lightroom-style pa rin ang layout, pero may sariling DarkLab na itsura (maliliit
 - **History** (Develop, kaliwa): bawat hakbang ng edit ay may pangalan (hal. "Exposure +0.50"). I-click para bumalik. Naka-sync ito sa ⌘Z / ⇧⌘Z.
 - **Snapshots** (Develop, kaliwa): + para i-save ang kasalukuyang edit sa isang pangalan. Hover = preview, click = apply.
 - **Before / After** (**Y** o mga button sa toolbar): Side by Side, o Split na may divider na nadi-drag. Sabay ang zoom.
-- **Export presets** (Presets menu sa Export) at **Watermark**: text (hal. "© Malayte") o PNG logo, may Position, Size, Opacity, at Margin.
+- **Export presets** (Presets menu sa Export) at **Watermark**: text (hal. "© Your Name") o PNG logo, may Position, Size, Opacity, at Margin.
 
 **Mula sa v0.9.0**
 - **Zoom:** unti-unti na (mga 9% kada ikot ng scroll wheel), at dumudulas ang pag-zoom sa halip na tumalon.

@@ -18,8 +18,8 @@ SHORT_NAME="LumaGrader"
 EXEC_NAME="Darkroom"
 OLD_APP_NAMES=("Darkroom" "DarkLab")
 BUNDLE_ID="com.rax.darkroom"
-VERSION="0.28.1"
-BUILD_NUMBER="41"
+VERSION="0.28.2"
+BUILD_NUMBER="42"
 
 INSTALL=0
 UNIVERSAL=0
