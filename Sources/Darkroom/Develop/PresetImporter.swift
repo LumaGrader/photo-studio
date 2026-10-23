@@ -161,8 +161,17 @@ enum PresetImporter {
             }
         }
 
-        // Profile
-        if let look = v.lookName?.trimmingCharacters(in: .whitespaces), !look.isEmpty {
+        // Profile: Lightroom's own base profiles first (Look name in newer presets,
+        // CameraProfile in older ones), then the Darkroom looks.
+        let adobeBases: [String: RawProfile?] = [
+            "Adobe Color": nil, "Adobe Standard": .adobeStandard, "Camera Standard": .cameraStandard,
+        ]
+        let lookName = v.lookName?.trimmingCharacters(in: .whitespaces) ?? ""
+        let cameraProfile = v.scalars["CameraProfile"]?.trimmingCharacters(in: .whitespaces) ?? ""
+        if let base = adobeBases[lookName] ?? (lookName.isEmpty ? adobeBases[cameraProfile] : nil) {
+            groups.insert(.profile)
+            s.profile = base
+        } else if let look = v.lookName?.trimmingCharacters(in: .whitespaces), !look.isEmpty {
             groups.insert(.profile)
             let similar: [(String, RawProfile)] = [
                 ("Standard", .standard), ("Vivid", .vivid), ("Portrait", .portrait),

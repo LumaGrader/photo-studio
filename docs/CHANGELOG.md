@@ -5,6 +5,15 @@ _(dating "DarkLab Studio", at bago noon "Darkroom")_
 Offline photo library + RAW editor para sa macOS, inspired ng Lightroom Classic.
 SwiftUI + SQLite + Core Image. Walang account, walang cloud.
 
+**Bago sa v0.29.0: Presets look right**
+- Light sliders (Exposure, Contrast, Highlights, Shadows, Whites, Blacks), Saturation, Color Mixer at Calibration: sinukat ulit — ang imported presets ay kamukha na ng itsura nila sa editor kung saan sila ginawa.
+- Bagong RAW profiles: **Standard** at **Camera Standard**; mas maliwanag at mas tama ang **Color** profile. Kusang pinipili ng preset ang profile nito.
+- Mas sharp ang RAW photos: bagong capture sharpening, walang nakatagong noise reduction.
+- Lens vignetting correction para sa Canon RF50mm F1.8 STM.
+- Support email sa About (support@lumagrader.app).
+- Paalala: medyo iba na ang itsura ng photos na na-edit sa mga naunang version.
+- Dev: `tools/calibration/` (test kit, compare at fit scripts); `--calibrate <in> <out>` CLI para mag-render nang walang window; `make-app.sh --install` ay naglilipat (hindi kumokopya) ng app sa /Applications.
+
 **Bago sa v0.28.2: Walang personal na pangalan**
 - About tab: tinanggal ang "Made by" row; copyright ay "© LumaGrader" na lang. README: walang pangalan.
 - Default watermark text: "© Your Name". Hindi nagbabago ang naka-save mo nang watermark.

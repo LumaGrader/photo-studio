@@ -431,7 +431,7 @@ struct DevelopPanels: View {
     private var profilePicker: some View {
         Menu {
             Section(Theme.appName) {
-                ForEach(RawProfile.allCases.filter { $0 != .cameraNeutral }) { profile in
+                ForEach(RawProfile.allCases.filter { $0 != .cameraNeutral && (session.isRaw || !$0.isRawOnly) }) { profile in
                     Button(profile == .darkroomColor && !session.isRaw ? "Color" : profile.shortName) {
                         chooseProfile(profile, lut: nil)
                     }

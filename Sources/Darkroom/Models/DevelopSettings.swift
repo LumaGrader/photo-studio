@@ -45,6 +45,9 @@ struct ColorGrade: Codable, Hashable {
 enum RawProfile: String, Codable, CaseIterable, Identifiable {
     /// macOS RAW decode + a look calibrated to Lightroom's Adobe Color (default).
     case darkroomColor = "Darkroom Color"
+    /// Matches Lightroom's Adobe Standard / Camera Standard base rendering (RAW only).
+    case adobeStandard = "Adobe Standard"
+    case cameraStandard = "Camera Standard"
     case standard = "Darkroom Standard"
     case vivid = "Darkroom Vivid"
     case portrait = "Darkroom Portrait"
@@ -60,7 +63,13 @@ enum RawProfile: String, Codable, CaseIterable, Identifiable {
     var shortName: String { rawValue.replacingOccurrences(of: "Darkroom ", with: "") }
 
     /// Looks drawn on top of the base (everything except Color and Camera Neutral).
-    var isLook: Bool { self != .darkroomColor && self != .cameraNeutral }
+    var isLook: Bool { !isBase }
+
+    /// Base renderings (not looks drawn on top of Color).
+    var isBase: Bool { [.darkroomColor, .adobeStandard, .cameraStandard, .cameraNeutral].contains(self) }
+
+    /// Only meaningful for RAW files.
+    var isRawOnly: Bool { [.adobeStandard, .cameraStandard, .cameraNeutral].contains(self) }
 }
 
 /// Non-destructive edits for one photo, stored as JSON in the catalog.

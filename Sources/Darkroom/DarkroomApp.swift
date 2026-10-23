@@ -19,6 +19,11 @@ struct DarkroomApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = LibraryStore()
 
+    init() {
+        // Developer tool: `--calibrate <in> <out>` renders slider test files and quits.
+        CalibrationRenderer.runIfRequested()
+    }
+
     var body: some Scene {
         WindowGroup(Theme.appFullName) {
             ContentView()

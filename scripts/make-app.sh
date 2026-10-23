@@ -18,8 +18,8 @@ SHORT_NAME="LumaGrader"
 EXEC_NAME="Darkroom"
 OLD_APP_NAMES=("Darkroom" "DarkLab")
 BUNDLE_ID="com.rax.darkroom"
-VERSION="0.28.2"
-BUILD_NUMBER="42"
+VERSION="0.29.0"
+BUILD_NUMBER="43"
 
 INSTALL=0
 UNIVERSAL=0
@@ -113,7 +113,8 @@ if [[ $INSTALL == 1 ]]; then
     done
   done
   rm -rf "$TARGET"
-  cp -R "$APP" "$TARGET"
-  echo "✓ Installed: $TARGET"
+  # Move (not copy) so only one copy of the app exists and Launchpad shows just one.
+  mv "$APP" "$TARGET"
+  echo "✓ Installed: $TARGET (moved out of dist/)"
   open "$TARGET"
 fi

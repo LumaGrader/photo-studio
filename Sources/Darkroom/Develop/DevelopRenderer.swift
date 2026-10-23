@@ -21,6 +21,8 @@ struct DevelopSource {
     var nativeLongSide: CGFloat = 0
     /// The photo file (used to cache its Select Subject mask).
     var url: URL?
+    /// Measured vignetting correction for the lens (RAW; replaces the decoder's own).
+    var lensProfile: LensProfiles.Profile?
 
     /// Identity of this decode (preview and full-size sources differ), for caches.
     var decoderID: String {
@@ -84,8 +86,11 @@ enum DevelopRenderer {
             let tint = Double(filter.neutralTint)
             let defaults = RawDetailDefaults(filter: filter)
             filter.exposure = 0
-            // Local-brightness map from the default rendering (Darkroom Color look).
+            // Our measured profile replaces the decoder's own lens correction for that lens.
+            let lens = LensProfiles.profile(for: url)
+            // Local-brightness map from the default rendering (Color look, lens corrected).
             let base = filter.outputImage
+                .map { image in lens.map { LensProfiles.correct(image, profile: $0) } ?? image }
                 .map { baseLook($0, profile: .darkroomColor) }
                 .flatMap { GuidedFilter.coefficientImage(for: $0, context: context) }
             return DevelopSource(
@@ -93,7 +98,8 @@ enum DevelopRenderer {
                 localBase: base,
                 rawDefaults: defaults,
                 nativeLongSide: max(native.width, native.height),
-                url: url)
+                url: url,
+                lensProfile: lens)
         }
 
         guard var image = CIImage(contentsOf: url, options: [.applyOrientationProperty: true]) else {
@@ -138,7 +144,10 @@ enum DevelopRenderer {
         if s.lensBlur.isActive {
             developed = RetouchRenderer.applyLensBlur(s.lensBlur, to: developed, url: source.url)
         }
-        if !source.isRaw {
+        if source.isRaw {
+            developed = sharpenRaw(developed, amount: s.detail.effectiveSharpening(isRaw: true),
+                                   nativeLongSide: source.nativeLongSide)
+        } else {
             developed = sharpen(developed, amount: s.detail.effectiveSharpening(isRaw: false))
         }
         var output = applyGeometry(developed, crop: s.crop, includeCrop: includeCrop)
@@ -151,17 +160,16 @@ enum DevelopRenderer {
 
     // MARK: - Detail
 
-    /// RAW: sharpening, noise reduction and lens corrections run inside the macOS decoder.
-    /// Slider defaults (Sharpening 40, Color NR 25) equal the decoder's own defaults.
+    /// RAW: noise reduction and lens corrections run inside the macOS decoder. Sharpening
+    /// doesn't: the decoder's own sharpening is off and `sharpenRaw` runs after develop, and
+    /// luminance noise reduction starts from 0 like Lightroom (the decoder's default softened
+    /// fine detail: LumaGrader had 60–80 % of Lightroom's detail on a Canon CR3).
     private static func applyDetail(_ d: DetailSettings, to filter: CIRAWFilter, defaults: RawDetailDefaults) {
         if defaults.sharpnessSupported {
-            let amount = d.effectiveSharpening(isRaw: true)
-            let base = defaults.sharpness > 0.05 ? defaults.sharpness : 0.4
-            filter.sharpnessAmount = min(base * Float(amount / DetailSettings.rawSharpening), 1)
+            filter.sharpnessAmount = 0
         }
         if defaults.luminanceNoiseSupported {
-            let nr = Float(min(max(d.noiseReduction, 0), 100) / 100)
-            filter.luminanceNoiseReductionAmount = defaults.luminanceNoise + (1 - defaults.luminanceNoise) * nr
+            filter.luminanceNoiseReductionAmount = Float(min(max(d.noiseReduction, 0), 100) / 100)
         }
         if defaults.colorNoiseSupported {
             let amount = d.colorNoise(isRaw: true)
@@ -202,6 +210,27 @@ enum DevelopRenderer {
             output = filter.outputImage?.cropped(to: image.extent) ?? output
         }
         return output
+    }
+
+    /// Lightroom-style capture sharpening for RAW: unsharp mask with a ~1 px radius at full
+    /// size (scaled down with the preview so it looks the same at every zoom).
+    /// Fitted on a Canon CR3 against Lightroom exports (tools/calibration, Oct 2026).
+    // Fitted on IMG_1085.CR3 (Sharpening 0 render vs Lightroom default Sharpening 40):
+    // fine detail 0.3–0.5 of Lightroom's before, ≈ 0.9–1.1 after.
+    static let rawSharpenSigma = 0.8        // px at full resolution, Lightroom Radius 1.0
+    static let rawSharpenAt40 = 2.7         // unsharp intensity at Sharpening 40
+
+    private static func sharpenRaw(_ image: CIImage, amount: Double, nativeLongSide: CGFloat) -> CIImage {
+        guard amount > 0 else { return image }
+        let longSide = max(image.extent.width, image.extent.height)
+        let scale = nativeLongSide > 0 ? min(1, longSide / nativeLongSide) : 1
+        let sigma = rawSharpenSigma * Double(scale)
+        guard sigma >= 0.25 else { return image }  // too small to matter in a small preview
+        let filter = CIFilter.unsharpMask()
+        filter.inputImage = image.clampedToExtent()
+        filter.radius = Float(sigma)
+        filter.intensity = Float(rawSharpenAt40 * amount / DetailSettings.rawSharpening)
+        return filter.outputImage?.cropped(to: image.extent) ?? image
     }
 
     /// JPEG/HEIC/TIFF sharpening (after tone + presence).
@@ -246,7 +275,13 @@ enum DevelopRenderer {
             filter.neutralTemperature = Float(s.temperature ?? asShotTemperature)
             filter.neutralTint = Float(s.tint ?? asShotTint)
             applyDetail(s.detail, to: filter, defaults: source.rawDefaults)
-            guard let output = filter.outputImage else { return nil }
+            if source.lensProfile != nil, source.rawDefaults.lensSupported {
+                filter.isLensCorrectionEnabled = false
+            }
+            guard var output = filter.outputImage else { return nil }
+            if let lens = source.lensProfile, s.detail.lensOn(isRaw: true) {
+                output = LensProfiles.correct(output, profile: lens)
+            }
             image = baseLook(output, profile: s.effectiveProfile)
         case let .image(base):
             image = denoise(base, detail: s.detail)
@@ -265,11 +300,12 @@ enum DevelopRenderer {
         return image.cropped(to: image.extent)
     }
 
-    /// RAW base rendering: the Darkroom Color look (also under the other Darkroom looks),
-    /// or the macOS decode as is.
+    /// RAW base rendering: the profile's base look (Color also sits under the Darkroom
+    /// looks), or the macOS decode as is (Camera Neutral).
     private static func baseLook(_ image: CIImage, profile: RawProfile) -> CIImage {
         guard profile != .cameraNeutral, case let .success(kernels) = DevelopKernel.shared else { return image }
-        return DevelopKernel.applyBaseLook(kernels.baseLook, to: image) ?? image
+        return DevelopKernel.applyBaseLook(kernels.baseLook, to: image,
+                                           look: DevelopKernel.baseLook(for: profile)) ?? image
     }
 
     /// Size of the developed photo before geometry (only its shape matters to the crop tool).

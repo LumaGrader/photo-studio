@@ -4,9 +4,9 @@ import simd
 
 /// The LumaGrader develop shader, ported to a Core Image Metal kernel and compiled at
 /// runtime by macOS. Per pixel, in this order (same as LumaGrader's WebGL shader):
-///   white balance (non-RAW) → tone (exposure + shoulder, local Highlights/Shadows,
-///   Whites/Blacks, Contrast) → gamut fit → Saturation/Vibrance → point curve → HSL →
-///   Color Grading.
+///   white balance (non-RAW) → local Highlights/Shadows → global tone curve (Exposure,
+///   Blacks, Whites, Contrast — ToneModel, hue-preserving on ProPhoto channels) → gamut fit
+///   → Saturation/Vibrance → point curve → HSL → Color Grading.
 enum DevelopKernel {
     struct Kernels {
         let develop: CIKernel
@@ -43,19 +43,42 @@ enum DevelopKernel {
         var errorDescription: String? { "The develop kernels were not found after compiling." }
     }
 
-    // MARK: - Darkroom Color (RAW base look)
+    // MARK: - RAW base looks (Adobe Color / Adobe Standard / Camera Standard)
     //
-    // Calibrated on one Canon CR3 (indoor court, As Shot ≈ 4550 K): macOS RAW decode vs
-    // Lightroom Adobe Color, both at zero settings, aligned pixel by pixel.
-    //  - Tone (sRGB-encoded luminance): e' = e + e(1−e)(a + b·e) — Lightroom is brighter
-    //    in the mids and upper mids.
-    //  - Colour (Oklab): chroma gain and hue shift per hue, 12 knots at 15° + 30°·i,
-    //    periodic Catmull-Rom, faded out for near-greys. Lightroom is ~11% less saturated
-    //    and its oranges sit ~5° toward red.
-    // Measured: Oklab ΔE 0.040 → 0.031 at zero settings. One photo — refine with more pairs.
-    static let lookTone = (a: -0.0173, b: 0.3126)
-    static let lookGains: [Double] = [0.809, 0.859, 0.928, 0.882, 0.845, 0.866, 0.872, 0.861, 0.867, 0.856, 0.792, 0.807]
-    static let lookShifts: [Double] = [-0.5, -0.2, -4.6, -5.5, -2.0, -1.8, -1.1, 1.1, -3.6, -6.3, -3.7, -1.2]
+    // macOS RAW decode → exposure × tone e' = e + e(1−e)(a + b·e) (sRGB-encoded luminance) →
+    // Oklab chroma gain and hue shift per hue (12 knots at 15° + 30°·i, periodic Catmull-Rom).
+    // Fitted on IMG_1085.CR3 (Canon) against Lightroom exports with each profile
+    // (tools/calibration, Oct 2026): tone by luminance quantiles, colour only at hues with
+    // enough pixels (others keep the earlier Adobe Color fit), jointly with the lens
+    // vignetting (LensProfiles). Profiles in Lightroom are per camera model, so other
+    // cameras are approximate.
+    struct BaseLook {
+        let exposure: Double
+        let tone: (a: Double, b: Double)
+        let gains: [Double]
+        let shifts: [Double]
+    }
+
+    static let adobeColorLook = BaseLook(
+        exposure: 0.7397, tone: (0.0987, 0.3374),
+        gains: [0.914, 0.919, 0.826, 0.945, 0.766, 0.725, 0.872, 0.600, 0.600, 0.856, 0.792, 0.807],
+        shifts: [-1.5, -2.1, 0.4, -10.5, -12.5, -8.5, -1.1, 8.8, 3.2, -6.3, -3.7, -1.2])
+    static let adobeStandardLook = BaseLook(
+        exposure: 0.6026, tone: (0.3158, 0.3220),
+        gains: [0.866, 0.850, 0.743, 0.829, 0.685, 0.647, 0.872, 0.600, 0.600, 0.856, 0.792, 0.807],
+        shifts: [-4.3, -4.6, -2.2, -11.0, -13.9, -8.9, -1.1, 8.4, 3.0, -6.3, -3.7, -1.2])
+    static let cameraStandardLook = BaseLook(
+        exposure: 0.5648, tone: (0.3161, 0.4664),
+        gains: [0.925, 0.926, 0.699, 0.696, 0.659, 0.759, 0.872, 0.600, 0.600, 0.856, 0.792, 0.807],
+        shifts: [-0.7, -0.2, -3.0, -6.8, -5.7, 3.5, -1.1, 8.1, 1.5, -6.3, -3.7, -1.2])
+
+    static func baseLook(for profile: RawProfile) -> BaseLook {
+        switch profile {
+        case .adobeStandard: return adobeStandardLook
+        case .cameraStandard: return cameraStandardLook
+        default: return adobeColorLook  // Color, and the looks drawn on top of it
+        }
+    }
 
     /// Applies a kernel whether macOS compiled it as a colour kernel or a general one.
     static func run(_ kernel: CIKernel, extent: CGRect, arguments: [Any], roi: CIKernelROICallback? = nil) -> CIImage? {
@@ -119,36 +142,6 @@ enum DevelopKernel {
         run(kernel, extent: image.extent, arguments: [image])?.cropped(to: image.extent) ?? image
     }
 
-    // MARK: - Calibration (red/green/blue primaries)
-
-    // Fitted on a Lightroom vs Darkroom pair (Teal Film preset: Blue Hue −25, Blue Sat +20,
-    // HSL Blue −45, Shadows grading 190°/25), Oklab ab error 0.022 → 0.015.
-    static let calibrationHueScale = 2.4        // rad per 100 (was 0.6)
-    static let calibrationSaturationScale = 0.15 // chroma per 100 (was 0.6)
-
-    /// 3×3 matrix (linear RGB) that moves the primaries in Oklab hue/chroma and keeps
-    /// white white: columns = new primaries, rescaled so (1,1,1) maps to (1,1,1).
-    static func calibrationMatrix(_ cal: CalibrationSettings) -> simd_double3x3 {
-        guard !cal.isNeutral else { return matrix_identity_double3x3 }
-        let adjustments = [(cal.redHue, cal.redSaturation), (cal.greenHue, cal.greenSaturation),
-                           (cal.blueHue, cal.blueSaturation)]
-        var columns: [SIMD3<Double>] = []
-        for (i, (hue, saturation)) in adjustments.enumerated() {
-            var primary = SIMD3<Double>(0, 0, 0)
-            primary[i] = 1
-            var lab = Oklab.fromLinear(primary)
-            let chroma = (lab.y * lab.y + lab.z * lab.z).squareRoot() * max(0, 1 + saturation / 100 * calibrationSaturationScale)
-            let angle = atan2(lab.z, lab.y) + hue / 100 * calibrationHueScale
-            lab.y = cos(angle) * chroma
-            lab.z = sin(angle) * chroma
-            columns.append(Oklab.toLinear(lab))
-        }
-        let m = simd_double3x3(columns[0], columns[1], columns[2])
-        guard abs(m.determinant) > 1e-6 else { return matrix_identity_double3x3 }
-        let w = m.inverse * SIMD3<Double>(1, 1, 1)
-        return simd_double3x3(columns[0] * w.x, columns[1] * w.y, columns[2] * w.z)
-    }
-
     /// Extra colour table, 10 × 1 pixels: two per Point Color — (L, chroma, hue, range) and
     /// (hue, saturation, luminance shifts, 0) as −1…1 — then the B&W mix (8 bands, 2 pixels).
     static func pointColorImage(_ points: [PointColor], bwMix: [Double]) -> CIImage {
@@ -172,31 +165,24 @@ enum DevelopKernel {
                        size: CGSize(width: 10, height: 1), format: .RGBAf, colorSpace: nil)
     }
 
-    /// Applies the Darkroom Color look to a linear RAW decode.
-    static func applyBaseLook(_ kernel: CIColorKernel, to image: CIImage) -> CIImage? {
+    /// Applies a profile's base look to a linear RAW decode.
+    static func applyBaseLook(_ kernel: CIColorKernel, to image: CIImage, look: BaseLook) -> CIImage? {
         func knots(_ values: [Double], _ start: Int) -> CIVector {
             CIVector(x: CGFloat(values[start]), y: CGFloat(values[start + 1]),
                      z: CGFloat(values[start + 2]), w: CGFloat(values[start + 3]))
         }
         return kernel.apply(extent: image.extent, arguments: [
             image,
-            knots(lookGains, 0), knots(lookGains, 4), knots(lookGains, 8),
-            knots(lookShifts, 0), knots(lookShifts, 4), knots(lookShifts, 8),
-            CIVector(x: CGFloat(lookTone.a), y: CGFloat(lookTone.b)),
+            knots(look.gains, 0), knots(look.gains, 4), knots(look.gains, 8),
+            knots(look.shifts, 0), knots(look.shifts, 4), knots(look.shifts, 8),
+            CIVector(x: CGFloat(look.tone.a), y: CGFloat(look.tone.b), z: CGFloat(look.exposure)),
         ])
     }
 
     // MARK: - Slider calibration
     //
-    // Re-fitted for the macOS RAW decode + Darkroom Color (same CR3, Highlights −60,
-    // Shadows +40, Contrast +30 vs Lightroom): Oklab ΔE 0.046 → 0.033, saturation matched.
-    // Lightroom's Contrast also raises saturation (it works on RGB channels), modelled as a
-    // chroma factor 1 + κ·contrast (half as strong for negative contrast).
-    static let shadowsGainEV = 0.729       // LumaGrader: 1.26
-    static let highlightsGainEV = 0.452    // LumaGrader: 0.44
-    static let highlightsCenterEV = -1.292 // LumaGrader: -1.83
-    static let contrastPivot = 0.604       // LumaGrader: 0.46
-    static let contrastSaturation = 1.018  // κ
+    // Shadows/Highlights (LocalTone) and Exposure, Contrast, Whites, Blacks (ToneModel) are
+    // measured on Lightroom with the calibration kit in tools/calibration.
 
     static var errorMessage: String? {
         if case let .failure(error) = shared { return error.localizedDescription }
@@ -253,14 +239,20 @@ enum DevelopKernel {
         let coefficients = localBase ?? flatCoefficients(extent)
         let curveActive = !s.curve.isIdentity
         let curve = curveActive ? curveImage(s.curve) : identityCurve
+        let toneActive = ToneModel.isActive(s)
+        let toneLUT = toneActive ? ToneModel.lutImage(s) : ToneModel.identityLUT
+        let localActive = LocalTone.isActive(s)
+        let zones = localActive ? LocalTone.zoneImage(s) : LocalTone.flatZones
+        let hslTable = s.isHSLActive ? HSLModel.tableImage(s) : HSLModel.flatTable
+        let zoneRange = LocalTone.zoneRange
 
         // White balance matrix (non-RAW only; RAW white balance happens in the decoder).
         var wb = matrix_identity_double3x3
         if !isRaw, let matrix = LumaEngine.whiteBalanceMatrix(temperature: s.temperature ?? 0, tint: s.tint ?? 0) {
             wb = matrix
         }
-        // Calibration runs right after white balance.
-        wb = calibrationMatrix(s.calibration) * wb
+        // Calibration and Saturation (measured matrices, ColorCalibration) right after WB.
+        wb = ColorCalibration.matrix(s.calibration, saturation: s.saturation) * wb
         let points = s.activePointColors
         let pointTable = pointColorImage(points, bwMix: s.bwMix)
         // simd matrices are column-major: row i = (col0[i], col1[i], col2[i]).
@@ -284,12 +276,15 @@ enum DevelopKernel {
             coefficients,
             curve,
             pointTable,
-            vec4(s.exposure, s.shadows / 100, s.highlights / 100, LumaEngine.shoulderA(ev: s.exposure)),
-            vec4(s.whites / 100, s.blacks / 100, s.contrast / 100, (s.highlights != 0 || s.shadows != 0) ? 1 : 0),
-            vec4(shadowsGainEV, highlightsGainEV, highlightsCenterEV, contrastPivot),
-            CIVector(x: CGFloat(contrastSaturation), y: CGFloat(points.count)),
+            toneLUT,
+            zones,
+            hslTable,
+            vec4(s.exposure, 0, 0, 0),
+            vec4(zoneRange.0, zoneRange.1 - zoneRange.0, 0, localActive ? 1 : 0),
+            vec4(LocalTone.zoneMix, LocalTone.shadowsChroma, LocalTone.highlightsChroma, 0),
+            CIVector(x: toneActive ? 1 : 0, y: CGFloat(points.count)),
             row(0), row(1), row(2),
-            vec4(s.saturation / 100, s.vibrance / 100, curveActive ? 1 : 0, hsl ? 1 : 0),
+            vec4(0, s.vibrance / 100, curveActive ? 1 : 0, hsl ? 1 : 0),  // Saturation: see wb
             bands(s.hslHue, 0), bands(s.hslHue, 4),
             bands(s.hslSaturation, 0), bands(s.hslSaturation, 4),
             bands(s.hslLuminance, 0), bands(s.hslLuminance, 4),
@@ -306,7 +301,10 @@ enum DevelopKernel {
                 case 0: return rect
                 case 1: return coefficients.extent
                 case 2: return curve.extent
-                default: return pointTable.extent
+                case 3: return pointTable.extent
+                case 4: return toneLUT.extent
+                case 5: return zones.extent
+                default: return hslTable.extent
                 }
             },
             arguments: arguments)
@@ -339,68 +337,35 @@ enum DevelopKernel {
       return max(y + (c - y) * t, 0.0);
     }
 
-    // ---- Tone (tone.js) ----
-    // Local zones on the edge-aware base (EV, 0 = white): bell-shaped, fitted to Lightroom.
-    // tune = (shadows gain EV, highlights gain EV, highlights centre EV, contrast pivot).
-    inline float drLocalGain(float v, float sh, float hi, float4 tune) {
-      float g = 0.0;
-      if (sh != 0.0) {
-        float w = (1.0 - drSig((v + 3.49) / 0.77)) * drSig((v + 4.68) / 0.36);
-        g += sh * tune.x * w;
-      }
-      if (hi != 0.0) {
-        float w = drSig((v - tune.z) / 0.66);
-        float fall = drSig((v + 0.22) / 0.1);
-        float back = drSig((v - 0.15) / 0.2);
-        w *= 1.0 - 0.85 * fall * (1.0 - back);
-        g += hi * tune.y * w;
-      }
-      return g;
+    // ---- Tone ----
+    // Global tone curve (ToneModel): `lut` holds 1024 values for inputs 0…1 (sRGB-encoded);
+    // above 1 it continues with the slope of the last step.
+    inline float drLut(coreimage::sampler lut, float x) {
+      const float n = 1023.0;
+      if (x <= 1.0) return lut.sample(lut.transform(float2(max(x, 0.0) * n + 0.5, 0.5))).r;
+      float y1 = lut.sample(lut.transform(float2(n + 0.5, 0.5))).r;
+      float y0 = lut.sample(lut.transform(float2(n - 0.5, 0.5))).r;
+      return y1 + (x - 1.0) * (y1 - y0) * n;
     }
 
-    inline float drGlobalGain(float v, float wh, float bl) {
-      float g = 0.0;
-      if (bl != 0.0) g += bl * 1.5 * (1.0 - drSig((v + 5.5) / 0.8));
-      if (wh != 0.0) g += wh * 0.8 * drSig((v + 0.3) / 0.6);
-      return g;
-    }
-
-    // Logistic S-curve (k = 6) in sRGB-encoded space around `pivot`, anchored at 0 and 1.
-    inline float drContrast(float p, float c, float pivot) {
-      if (c == 0.0) return p;
-      float s0 = drSig(-6.0 * pivot);
-      float s1 = drSig(6.0 * (1.0 - pivot));
-      float a = abs(c);
-      if (p >= 1.0) {
-        float slopeAt1 = 6.0 * s1 * (1.0 - s1) / (s1 - s0);
-        float slope = c > 0.0 ? slopeAt1 : 1.0 / slopeAt1;
-        return 1.0 + (p - 1.0) * (1.0 + a * (slope - 1.0));
-      }
-      float q = max(0.0, p);
-      float target;
-      if (c > 0.0) {
-        target = (drSig(6.0 * (q - pivot)) - s0) / (s1 - s0);
-      } else {
-        float t = clamp(q * (s1 - s0) + s0, 1e-6, 1.0 - 1e-6);
-        target = pivot + log(t / (1.0 - t)) / 6.0;
-      }
-      return p + a * (target - p);
-    }
-
-    // +Exposure highlight shoulder: tones above the knee roll into white instead of clipping.
-    inline float drShoulder(float x, float ev, float a) {
-      float k = 0.4;
-      if (ev <= 0.0 || x <= k || a <= 0.0) return x;
-      float t = exp2(ev) - k;
-      if (t <= 1.0 - k) return x;
-      return k + (1.0 - k) * (1.0 - exp(-a * min(x - k, t))) / (1.0 - exp(-a * t));
-    }
-
-    inline float drGlobalToneY(float v, float ev, float a, float wh, float bl, float con, float pivot) {
-      if (ev > 0.0) v = log2(max(drShoulder(exp2(v), ev, a), 1e-8));
-      float y1 = exp2(v + drGlobalGain(v, wh, bl));
-      float p = drContrast(drEnc1(y1), con, pivot);
-      return p <= 0.0 ? 0.0 : drDec1(p);
+    // Hue-preserving curve on ProPhoto RGB (sRGB-encoded) channels, like Lightroom: the curve
+    // moves the largest and smallest channel; the middle one keeps its relative position.
+    inline float3 drToneRGB(float3 lin, coreimage::sampler lut) {
+      float3 pp = max(float3(
+        dot(lin, float3(0.5292804, 0.3301530, 0.1405666)),
+        dot(lin, float3(0.0983662, 0.8734640, 0.0281698)),
+        dot(lin, float3(0.0168753, 0.1176594, 0.8654652))), 0.0);
+      float3 e = drEnc(pp);
+      float hi = max(e.r, max(e.g, e.b));
+      float lo = min(e.r, min(e.g, e.b));
+      float nhi = drLut(lut, hi);
+      float nlo = drLut(lut, lo);
+      float3 o = hi - lo > 1e-6 ? nlo + (nhi - nlo) * (e - lo) / (hi - lo) : float3(nhi);
+      float3 l = drDec(max(o, 0.0));
+      return max(float3(
+        dot(l, float3(2.0343675, -0.7276345, -0.3067331)),
+        dot(l, float3(-0.2288268, 1.2317534, -0.0029266)),
+        dot(l, float3(-0.0085584, -0.1532682, 1.1618266))), 0.0);
     }
 
     // ---- Color (color.js) ----
@@ -504,46 +469,42 @@ enum DevelopKernel {
     }
 
     [[ stitchable ]] float4 drDevelop(coreimage::sampler src, coreimage::sampler coef, coreimage::sampler curve,
-                                      coreimage::sampler points,
+                                      coreimage::sampler points, coreimage::sampler lut,
+                                      coreimage::sampler zones, coreimage::sampler hslTable,
                                       float4 tone1, float4 tone2, float4 tune, float2 extra,
                                       float3 wb0, float3 wb1, float3 wb2,
                                       float4 color, float4 hueA, float4 hueB, float4 satA, float4 satB,
                                       float4 lumA, float4 lumB, float4 gradeT01, float4 gradeT23,
                                       float4 gradeL, float4 gradeMisc, coreimage::destination dest) {
-      float kappa = extra.x;
+      bool globalTone = extra.x > 0.5;
       float pointCount = extra.y;
       float4 px = src.sample(src.coord());
       float3 lin = max(px.rgb, 0.0);
       lin = max(float3(dot(wb0, lin), dot(wb1, lin), dot(wb2, lin)), 0.0);
 
-      float ev = tone1.x, sh = tone1.y, hi = tone1.z, shoulder = tone1.w;
-      float wh = tone2.x, bl = tone2.y, con = tone2.z;
-      bool tone = ev != 0.0 || sh != 0.0 || hi != 0.0 || wh != 0.0 || bl != 0.0 || con != 0.0;
-      if (tone) {
+      float ev = tone1.x;
+      // Shadows/Highlights (LocalTone): gain by zone value = mix of the edge-aware local
+      // base and the pixel itself; tune = (mix, Shadows β, Highlights β).
+      if (tone2.w > 0.5) {
         float y0 = drLuma(lin);
         if (y0 > 1e-8) {
           float v0 = max(log2(y0), -14.0);
-          float v = log2(y0) + ev;
-          if (tone2.w > 0.5) {
-            float2 ab = coef.sample(coef.transform(dest.coord())).rg;
-            float base = ab.x * v0 + ab.y + ev;
-            v += drLocalGain(clamp(base, -14.0, 6.0), sh, hi, tune);
-          }
-          float yf = drGlobalToneY(v, ev, shoulder, wh, bl, con, tune.w);
-          lin *= yf / y0;
-        } else {
-          lin = float3(0.0);
+          float2 ab = coef.sample(coef.transform(dest.coord())).rg;
+          float base = clamp(ab.x * v0 + ab.y, -14.0, 6.0);
+          float v = clamp(tune.x * base + (1.0 - tune.x) * v0, -14.0, 6.0) + ev;
+          float t = clamp((v - tone2.x) / tone2.y, 0.0, 1.0);
+          float2 g = zones.sample(zones.transform(float2(t * 255.0 + 0.5, 0.5))).rg;
+          lin *= exp2(g.x + g.y);
+          // Keep values above white (RAW headroom); the gamut fit further down handles them.
+          float3 cz = drScaleChroma(drEnc(max(lin, 0.0)), exp2(-tune.y * g.x - tune.z * g.y));
+          lin = drDec(max(cz, 0.0));
         }
       }
+      // Back to sRGB with per-channel clipping, like Lightroom's ProPhoto → sRGB output
+      // (desaturating toward grey instead made bright saturated colours too pale).
+      if (globalTone) lin = clamp(drToneRGB(lin, lut), 0.0, 1.0);
 
       float3 c = drEnc(drFitGamut(lin));
-
-      // Lightroom's Contrast also changes saturation (it works on RGB channels), less so
-      // for colours that are already saturated.
-      if (con != 0.0) {
-        float s0 = drHueSat(c).y;
-        c = drScaleChroma(c, 1.0 + kappa * con * (con > 0.0 ? 1.0 : 0.5) * (1.0 - s0 * s0));
-      }
 
       if (color.x != 0.0 || color.y != 0.0) c = drScaleChroma(c, drSatVibFactor(c, color.x, color.y));
       c = clamp(c, 0.0, 1.0);
@@ -567,19 +528,19 @@ enum DevelopKernel {
         }
         c = clamp(float3(drEnc1(y)), 0.0, 1.0);
       } else if (color.w > 0.5) {
-        float2 hs = drHueSat(c);
-        float fade = drSmooth(0.03, 0.2, hs.y);
-        if (fade > 0.0) {
-          int i0 = 7;
-          for (int i = 0; i < 8; i++) { if (hs.x >= DR_HSL_C[i] && hs.x < DR_HSL_C[i + 1]) { i0 = i; } }
-          float t = drSmooth(0.0, 1.0, (hs.x - DR_HSL_C[i0]) / (DR_HSL_C[i0 + 1] - DR_HSL_C[i0]));
-          int i1 = i0 == 7 ? 0 : i0 + 1;
-          float dh = mix(drBand(hueA, hueB, i0), drBand(hueA, hueB, i1), t) * fade;
-          float ds = mix(drBand(satA, satB, i0), drBand(satA, satB, i1), t) * fade;
-          float dl = mix(drBand(lumA, lumB, i0), drBand(lumA, lumB, i1), t) * fade;
-          if (dh != 0.0) c = drWithHue(c, hs.x + dh * 0.6);
-          if (ds != 0.0) c = drScaleChroma(c, 1.0 + ds / 100.0);
-          if (dl != 0.0) c = drEnc(drFitGamut(drDec(c) * exp2(dl / 100.0 * 1.2)));
+        // Color Mixer (HSLModel): hue shift, chroma and lightness ratios looked up by the
+        // pixel's Oklab hue (x, degrees) and chroma (y, 0…0.30 over 16 rows).
+        float3 o = drOklab(drDec(c));
+        float cc = length(o.yz);
+        if (cc > 1e-5) {
+          float hd = atan2(o.z, o.y) * 57.29577951;
+          if (hd < 0.0) hd += 360.0;
+          float y = clamp(cc / 0.30, 0.0, 1.0) * 15.0 + 0.5;
+          float3 e = hslTable.sample(hslTable.transform(float2(hd + 0.5, y))).rgb;
+          float hr = (hd + e.x) * 0.01745329252;
+          float c2 = cc * exp(e.y);
+          o = float3(o.x * exp(e.z), cos(hr) * c2, sin(hr) * c2);
+          c = drEnc(drFitGamut(max(drFromOklab(o), 0.0)));
         }
       }
 
@@ -636,7 +597,7 @@ enum DevelopKernel {
       return float4(drDec(clamp(c, 0.0, 1.0)), px.a);
     }
 
-    // ---- Darkroom Color: RAW base look (see lookTone / lookGains / lookShifts) ----
+    // ---- RAW base look (see BaseLook) ----
     inline float drKnot(float4 a, float4 b, float4 c, int i) {
       i = (i % 12 + 12) % 12;
       return i < 4 ? a[i] : (i < 8 ? b[i - 4] : c[i - 8]);
@@ -653,8 +614,8 @@ enum DevelopKernel {
     }
 
     [[ stitchable ]] float4 drBaseLook(coreimage::sample_t s, float4 g0, float4 g1, float4 g2,
-                                       float4 h0, float4 h1, float4 h2, float2 tone) {
-      float3 lin = max(s.rgb, 0.0);
+                                       float4 h0, float4 h1, float4 h2, float3 tone) {
+      float3 lin = max(s.rgb, 0.0) * tone.z;
       float y = drLuma(lin);
       if (y > 1e-8) {
         float e = drEnc1(y);

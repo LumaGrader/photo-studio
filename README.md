@@ -78,6 +78,7 @@ Sources/Darkroom/
   Support/                    colour math, focus peaking
 Resources/                    app icon, DMG background, Read Me for the installer
 scripts/                      make-app.sh, make-dmg.sh
+tools/calibration/            colour-calibration kit, compare and fit scripts (Python)
 docs/CHANGELOG.md             version history and developer notes (Taglish)
 ```
 

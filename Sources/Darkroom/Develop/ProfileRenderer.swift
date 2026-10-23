@@ -20,7 +20,7 @@ enum ProfileRenderer {
 
     static func look(for profile: RawProfile) -> Look? {
         switch profile {
-        case .darkroomColor, .cameraNeutral:
+        case .darkroomColor, .adobeStandard, .cameraStandard, .cameraNeutral:
             return nil
         case .standard:
             return Look(contrast: 0.08, saturation: 1.04)
