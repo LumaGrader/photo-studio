@@ -166,6 +166,8 @@ struct FoldersSection: View {
                 .disabled(!folder.exists)
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([folder.url]) }
                 .disabled(!folder.exists)
+            Divider()
+            Button("Remove Folder…") { store.confirmRemoveFolder(folder) }
         }
     }
 }

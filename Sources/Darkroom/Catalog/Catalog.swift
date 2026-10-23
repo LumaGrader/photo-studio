@@ -290,6 +290,19 @@ final class Catalog {
         return id
     }
 
+    /// Photos in a folder (virtual copies not counted).
+    func photoCount(folderID: Int64) throws -> Int {
+        try query("SELECT COUNT(*) FROM photos WHERE folder_id = ? AND copy_index = 0;", [.int(folderID)]) {
+            Int(sqlite3_column_int64($0, 0))
+        }.first ?? 0
+    }
+
+    /// Removes a folder from the catalog with all its photos (their edits, snapshots, faces and
+    /// collection entries go with them). Files on disk are not touched here.
+    func removeFolder(id: Int64) throws {
+        try run("DELETE FROM folders WHERE id = ?;", [.int(id)])
+    }
+
     // MARK: - Photos
 
     /// Adds files not yet in the catalog. Existing photos keep their ratings and flags.

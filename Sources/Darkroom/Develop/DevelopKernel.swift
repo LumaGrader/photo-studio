@@ -6,7 +6,7 @@ import simd
 /// runtime by macOS. Per pixel, in this order (same as LumaGrader's WebGL shader):
 ///   white balance (non-RAW) → local Highlights/Shadows → global tone curve (Exposure,
 ///   Blacks, Whites, Contrast — ToneModel, hue-preserving on ProPhoto channels) → gamut fit
-///   → Saturation/Vibrance → point curve → HSL → Color Grading.
+///   → Saturation/Vibrance → HSL → point curve → Color Grading.
 enum DevelopKernel {
     struct Kernels {
         let develop: CIKernel
@@ -47,7 +47,8 @@ enum DevelopKernel {
     //
     // macOS RAW decode → exposure × tone e' = e + e(1−e)(a + b·e) (sRGB-encoded luminance) →
     // Oklab chroma gain and hue shift per hue (12 knots at 15° + 30°·i, periodic Catmull-Rom).
-    // Fitted on IMG_1085.CR3 (Canon) against Lightroom exports with each profile
+    // Fitted on IMG_1085.CR3 (Canon) against Lightroom exports with each profile, colour
+    // refined with IMG_1025 (foliage, 6 m focus) for Adobe Color / Adobe Standard
     // (tools/calibration, Oct 2026): tone by luminance quantiles, colour only at hues with
     // enough pixels (others keep the earlier Adobe Color fit), jointly with the lens
     // vignetting (LensProfiles). Profiles in Lightroom are per camera model, so other
@@ -61,12 +62,12 @@ enum DevelopKernel {
 
     static let adobeColorLook = BaseLook(
         exposure: 0.7397, tone: (0.0987, 0.3374),
-        gains: [0.914, 0.919, 0.826, 0.945, 0.766, 0.725, 0.872, 0.600, 0.600, 0.856, 0.792, 0.807],
-        shifts: [-1.5, -2.1, 0.4, -10.5, -12.5, -8.5, -1.1, 8.8, 3.2, -6.3, -3.7, -1.2])
+        gains: [0.908, 0.880, 0.795, 0.948, 0.790, 0.696, 0.872, 0.600, 0.803, 0.856, 0.792, 0.807],
+        shifts: [-1.7, 0.6, -0.9, -6.4, -9.5, -8.4, -1.1, 8.8, -2.5, -6.3, -3.7, -1.2])
     static let adobeStandardLook = BaseLook(
         exposure: 0.6026, tone: (0.3158, 0.3220),
-        gains: [0.866, 0.850, 0.743, 0.829, 0.685, 0.647, 0.872, 0.600, 0.600, 0.856, 0.792, 0.807],
-        shifts: [-4.3, -4.6, -2.2, -11.0, -13.9, -8.9, -1.1, 8.4, 3.0, -6.3, -3.7, -1.2])
+        gains: [0.792, 0.850, 0.743, 0.866, 0.718, 0.647, 0.872, 0.600, 0.778, 0.856, 0.792, 0.807],
+        shifts: [-7.5, -4.6, -2.2, -5.4, -9.6, -8.9, -1.1, 8.4, -0.8, -6.3, -3.7, -1.2])
     static let cameraStandardLook = BaseLook(
         exposure: 0.5648, tone: (0.3161, 0.4664),
         gains: [0.925, 0.926, 0.699, 0.696, 0.659, 0.759, 0.872, 0.600, 0.600, 0.856, 0.792, 0.807],
@@ -240,9 +241,9 @@ enum DevelopKernel {
         let curveActive = !s.curve.isIdentity
         let curve = curveActive ? curveImage(s.curve) : identityCurve
         let toneActive = ToneModel.isActive(s)
-        let toneLUT = toneActive ? ToneModel.lutImage(s) : ToneModel.identityLUT
+        let toneLUT = toneActive ? ToneModel.lutImage(s, isRaw: isRaw) : ToneModel.identityLUT
         let localActive = LocalTone.isActive(s)
-        let zones = localActive ? LocalTone.zoneImage(s) : LocalTone.flatZones
+        let zones = localActive ? LocalTone.zoneImage(s, isRaw: isRaw) : LocalTone.flatZones
         let hslTable = s.isHSLActive ? HSLModel.tableImage(s) : HSLModel.flatTable
         let zoneRange = LocalTone.zoneRange
 
@@ -366,6 +367,21 @@ enum DevelopKernel {
         dot(l, float3(2.0343675, -0.7276345, -0.3067331)),
         dot(l, float3(-0.2288268, 1.2317534, -0.0029266)),
         dot(l, float3(-0.0085584, -0.1532682, 1.1618266))), 0.0);
+    }
+
+    // Linear sRGB ↔ sRGB-encoded ProPhoto RGB (same matrices as drToneRGB).
+    inline float3 drEncodeProPhoto(float3 lin) {
+      return drEnc(clamp(float3(
+        dot(lin, float3(0.5292804, 0.3301530, 0.1405666)),
+        dot(lin, float3(0.0983662, 0.8734640, 0.0281698)),
+        dot(lin, float3(0.0168753, 0.1176594, 0.8654652))), 0.0, 1.0));
+    }
+    inline float3 drDecodeProPhoto(float3 e) {
+      float3 l = drDec(max(e, 0.0));
+      return float3(
+        dot(l, float3(2.0343675, -0.7276345, -0.3067331)),
+        dot(l, float3(-0.2288268, 1.2317534, -0.0029266)),
+        dot(l, float3(-0.0085584, -0.1532682, 1.1618266)));
     }
 
     // ---- Color (color.js) ----
@@ -509,13 +525,6 @@ enum DevelopKernel {
       if (color.x != 0.0 || color.y != 0.0) c = drScaleChroma(c, drSatVibFactor(c, color.x, color.y));
       c = clamp(c, 0.0, 1.0);
 
-      if (color.z > 0.5) {
-        float3 cu = c * 255.0 + 0.5;
-        c.r = curve.sample(curve.transform(float2(cu.r, 0.5))).r;
-        c.g = curve.sample(curve.transform(float2(cu.g, 0.5))).g;
-        c.b = curve.sample(curve.transform(float2(cu.b, 0.5))).b;
-      }
-
       if (gradeMisc.w > 0.5) {
         // Black & White: luminance, brightened or darkened per original colour (B&W mix).
         float4 monoA = points.sample(points.transform(float2(8.5, 0.5)));
@@ -542,6 +551,17 @@ enum DevelopKernel {
           o = float3(o.x * exp(e.z), cos(hr) * c2, sin(hr) * c2);
           c = drEnc(drFitGamut(max(drFromOklab(o), 0.0)));
         }
+      }
+
+      if (color.z > 0.5) {
+        // Point curves act on ProPhoto RGB (sRGB-encoded) channels, like Lightroom (measured
+        // Oct 2026: per-channel curves on sRGB made greens too yellow with RGB-curve presets),
+        // after the Color Mixer as in Lightroom (before it, HSL damped the curves' colour).
+        float3 cu = drEncodeProPhoto(drDec(c)) * 255.0 + 0.5;
+        float3 o = float3(curve.sample(curve.transform(float2(cu.r, 0.5))).r,
+                          curve.sample(curve.transform(float2(cu.g, 0.5))).g,
+                          curve.sample(curve.transform(float2(cu.b, 0.5))).b);
+        c = drEnc(clamp(drDecodeProPhoto(o), 0.0, 1.0));
       }
 
       // Point Color: up to 4 picked colours, matched by hue, chroma and lightness.

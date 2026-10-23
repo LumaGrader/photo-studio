@@ -9,9 +9,12 @@ SwiftUI + SQLite + Core Image. Walang account, walang cloud.
 - Light sliders (Exposure, Contrast, Highlights, Shadows, Whites, Blacks), Saturation, Color Mixer at Calibration: sinukat ulit — ang imported presets ay kamukha na ng itsura nila sa editor kung saan sila ginawa.
 - Bagong RAW profiles: **Standard** at **Camera Standard**; mas maliwanag at mas tama ang **Color** profile. Kusang pinipili ng preset ang profile nito.
 - Mas sharp ang RAW photos: bagong capture sharpening, walang nakatagong noise reduction.
-- Lens vignetting correction para sa Canon RF50mm F1.8 STM.
+- Mas tamang kulay sa RAW files: light sliders, tone curves at greens, sinukat ulit.
+- Lens vignetting correction para sa Canon EF50mm f/1.8 STM (ayon sa focus distance).
+- **Remove Folder…** (right-click ng folder sa Library): tanggalin sa catalog, o ilipat sa Trash ang buong folder.
 - Support email sa About (support@lumagrader.app).
 - Paalala: medyo iba na ang itsura ng photos na na-edit sa mga naunang version.
+- Dev: RGB point curves sa ProPhoto (sRGB-encoded) channels at pagkatapos ng Color Mixer; RAW-only tables para sa Contrast/Whites/Blacks/Shadows/Highlights (`RawSliderData.swift`, `fit_raw_sliders.py`); lens vignetting interpolated sa 1/focus distance (Canon CR3 FileInfo); Color/Standard base looks refined gamit ang IMG_1025.
 - Dev: `tools/calibration/` (test kit, compare at fit scripts); `--calibrate <in> <out>` CLI para mag-render nang walang window; `make-app.sh --install` ay naglilipat (hindi kumokopya) ng app sa /Applications.
 
 **Bago sa v0.28.2: Walang personal na pangalan**

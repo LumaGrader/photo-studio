@@ -34,12 +34,14 @@ enum ToneModel {
         s.exposure != 0 || s.contrast != 0 || s.whites != 0 || s.blacks != 0
     }
 
-    /// Display value (sRGB-encoded, 0…1) in → out for the current slider values.
-    static func value(_ x: Double, settings s: DevelopSettings) -> Double {
+    /// Display value (sRGB-encoded, 0…1) in → out for the current slider values. RAW files
+    /// use the tables measured on RAW (`rawSliderTables`, RawSliderData.swift).
+    static func value(_ x: Double, settings s: DevelopSettings, isRaw: Bool = false) -> Double {
         var v = exposure(min(max(x, 0), 1), ev: s.exposure)
+        let tables = isRaw ? rawSliderTables : sliderTables
         for (slider, amount) in [(Slider.blacks, s.blacks), (.whites, s.whites), (.contrast, s.contrast)]
         where amount != 0 {
-            if let table = sliderTables[slider] {
+            if let table = tables[slider] {
                 v += table.offset(at: min(max(v, 0), 1), amount: amount)
             }
         }
@@ -54,10 +56,10 @@ enum ToneModel {
     }
 
     /// The curve as a `lutSize` × 1 table image (value in every channel).
-    static func lutImage(_ s: DevelopSettings) -> CIImage {
+    static func lutImage(_ s: DevelopSettings, isRaw: Bool = false) -> CIImage {
         var values = [Float](repeating: 0, count: lutSize * 4)
         for i in 0..<lutSize {
-            let v = Float(value(Double(i) / Double(lutSize - 1), settings: s))
+            let v = Float(value(Double(i) / Double(lutSize - 1), settings: s, isRaw: isRaw))
             values[i * 4] = v
             values[i * 4 + 1] = v
             values[i * 4 + 2] = v
